@@ -36,14 +36,15 @@ class UserOption:
         if yielding is None:
             yielding = default_yielding
         if not isinstance(yielding, bool):
-            raise MesonException('Value of "yielding" must be a boolean.')
+            raise MesonException('Value of kwarg "yield" for option {!r} must be a boolean'
+                                 .format(self.name))
         self.yielding = yielding
 
     # Check that the input is a valid value and return the
     # "cleaned" or "native" version. For example the Boolean
     # option could take the string "true" and return True.
     def validate_value(self, value):
-        raise RuntimeError('Derived option class did not override validate_value.')
+        raise NotImplementedError('Derived option class must override validate_value')
 
     def set_value(self, newvalue):
         self.value = self.validate_value(newvalue)
@@ -55,7 +56,8 @@ class UserStringOption(UserOption):
 
     def validate_value(self, value):
         if not isinstance(value, str):
-            raise MesonException('Value "%s" for string option "%s" is not a string.' % (str(value), self.name))
+            raise MesonException('Value {!r} for string option {!r} is not a string'
+                                 .format(value, self.name))
         return value
 
 class UserBooleanOption(UserOption):
@@ -73,7 +75,8 @@ class UserBooleanOption(UserOption):
             return True
         if value.lower() == 'false':
             return False
-        raise MesonException('Value %s is not boolean (true or false).' % value)
+        raise MesonException('Value {!r} for boolean option {!r} must be "true" or "false"'
+                             .format(value, self.name))
 
 class UserIntegerOption(UserOption):
     def __init__(self, name, description, min_value, max_value, value, yielding=None):
@@ -92,18 +95,22 @@ class UserIntegerOption(UserOption):
         if isinstance(value, str):
             value = self.toint(value)
         if not isinstance(value, int):
-            raise MesonException('New value for integer option is not an integer.')
+            raise MesonException('Value {!r} for integer option {!r} is not an integer'
+                                 .format(value, self.name))
         if self.min_value is not None and value < self.min_value:
-            raise MesonException('New value %d is less than minimum value %d.' % (value, self.min_value))
+            raise MesonException('Value {!r} for integer option {!r} is less than minimum value {!r}'
+                                 .format(value, self.name, self.min_value))
         if self.max_value is not None and value > self.max_value:
-            raise MesonException('New value %d is more than maximum value %d.' % (value, self.max_value))
+            raise MesonException('Value {!r} for integer option {!r} is more than maximum value {!r}'
+                                 .format(value, self.name, self.max_value))
         return value
 
     def toint(self, valuestring):
         try:
             return int(valuestring)
         except ValueError:
-            raise MesonException('Value string "%s" is not convertable to an integer.' % valuestring)
+            raise MesonException('Value {!r} for integer option {!r} is not convertable to an integer'
+                                 .format(valuestring, self.name))
 
 class UserUmaskOption(UserIntegerOption):
     def __init__(self, name, description, value, yielding=None):
@@ -119,7 +126,7 @@ class UserUmaskOption(UserIntegerOption):
         try:
             return int(valuestring, 8)
         except ValueError as e:
-            raise MesonException('Invalid mode: {}'.format(e))
+            raise MesonException('Invalid mode: {!r} for option {!r}'.format(e, self.name))
 
 class UserComboOption(UserOption):
     def __init__(self, name, description, choices, value, yielding=None):
@@ -134,7 +141,8 @@ class UserComboOption(UserOption):
     def validate_value(self, value):
         if value not in self.choices:
             optionsstring = ', '.join(['"%s"' % (item,) for item in self.choices])
-            raise MesonException('Value "%s" for combo option "%s" is not one of the choices. Possible choices are: %s.' % (value, self.name, optionsstring))
+            raise MesonException('Value {!r} for combo option {!r} must be one of: %s'
+                                 .format(value, self.name, optionsstring))
         return value
 
 class UserArrayOption(UserOption):
@@ -149,7 +157,8 @@ class UserArrayOption(UserOption):
         # string, but for defining options in meson_options.txt the format
         # should match that of a combo
         if not user_input and isinstance(value, str) and not value.startswith('['):
-            raise MesonException('Value does not define an array: ' + value)
+            raise MesonException('Value {!r} for array option {!r} is not an array'
+                                 .format(value, self.name))
 
         if isinstance(value, str):
             if value.startswith('['):
@@ -164,7 +173,8 @@ class UserArrayOption(UserOption):
         elif isinstance(value, list):
             newvalue = value
         else:
-            raise MesonException('"{0}" should be a string array, but it is not'.format(str(newvalue)))
+            raise MesonException('Value {!r} for array option {!r} must be a string array'
+                                 .format(newvalue, self.name))
 
         if len(set(newvalue)) != len(newvalue):
             msg = 'Duplicated values in array option "%s" is deprecated. ' \
@@ -172,12 +182,13 @@ class UserArrayOption(UserOption):
             mlog.deprecation(msg)
         for i in newvalue:
             if not isinstance(i, str):
-                raise MesonException('String array element "{0}" is not a string.'.format(str(newvalue)))
+                raise MesonException('String array element {!r} for option {!r} is not a string'
+                                     .format(newvalue, self.name))
         if self.choices:
             bad = [x for x in newvalue if x not in self.choices]
             if bad:
-                raise MesonException('Options "{}" are not in allowed choices: "{}"'.format(
-                    ', '.join(bad), ', '.join(self.choices)))
+                raise MesonException('Values {!r} for option {!r} are not in allowed choices: {!r}'
+                                     .format(', '.join(bad), self.name, ', '.join(self.choices)))
         return newvalue
 
 class UserFeatureOption(UserComboOption):
