@@ -11,3 +11,6 @@ m = shared_module('mymodule', 'module.c')
 e = executable('prog', 'prog.c',
   link_with : l, export_dynamic : true, dependencies : dl)
 test('import test', e, args : m)
+
+# Shared module that does not export any symbols
+shared_module('nosyms', 'nosyms.c', install : true)
